@@ -1,3 +1,7 @@
+# เลี้ยงกาแฟผู้พัฒนา
+
+!["Alt text"](https://warathepj.github.io/js-ai-gallery/public/image/promptpay-20.png)
+
 # Dijkstra's Algorithm Visualization
 
 An interactive web-based visualization of Dijkstra's shortest path algorithm. This project helps users understand how Dijkstra's algorithm works by providing a visual representation of the pathfinding process.
