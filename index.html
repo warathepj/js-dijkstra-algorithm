@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dijkstra's Algorithm Visualization</title>
+    <style>
+        canvas {
+            border: 1px solid #000;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        button {
+            padding: 8px 12px;
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        .stats {
+            margin-top: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="startDijkstra()">Start Dijkstra's</button>
+        <button onclick="generateGraph()">Generate New Graph</button>
+    </div>
+    <canvas id="canvas" width="800" height="500"></canvas>
+    <div class="stats" id="stats"></div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const NODE_RADIUS = 20;
+        
+        let nodes = [];
+        let edges = [];
+        let startNode = null;
+        let endNode = null;
+        let animationSpeed = 500; // ms between steps
+
+        class Node {
+            constructor(id, x, y) {
+                this.id = id;
+                this.x = x;
+                this.y = y;
+                this.distance = Infinity;
+                this.visited = false;
+                this.previous = null;
+            }
+        }
+
+        class Edge {
+            constructor(source, target, weight) {
+                this.source = source;
+                this.target = target;
+                this.weight = weight;
+            }
+        }
+
+        function generateGraph() {
+            nodes = [];
+            edges = [];
+            
+            // Create nodes arranged in a circle
+            const nodeCount = 8;
+            const centerX = canvas.width/2;
+            const centerY = canvas.height/2;
+            const radius = 180;
+            
+            for(let i = 0; i < nodeCount; i++) {
+                const angle = (i * 2 * Math.PI) / nodeCount;
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                nodes.push(new Node(i, x, y));
+            }
+            
+            // Create random edges
+            for(let i = 0; i < nodeCount * 2; i++) {
+                const a = Math.floor(Math.random() * nodeCount);
+                const b = Math.floor(Math.random() * nodeCount);
+                if(a !== b && !edges.some(e => 
+                    (e.source === a && e.target === b) || 
+                    (e.source === b && e.target === a))) {
+                    const weight = Math.floor(Math.random() * 9) + 1;
+                    edges.push(new Edge(a, b, weight));
+                }
+            }
+            
+            startNode = 0;
+            endNode = nodes.length - 1;
+            draw();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw edges
+            edges.forEach(edge => {
+                const source = nodes[edge.source];
+                const target = nodes[edge.target];
+                ctx.beginPath();
+                ctx.moveTo(source.x, source.y);
+                ctx.lineTo(target.x, target.y);
+                ctx.strokeStyle = '#000';
+                ctx.stroke();
+                
+                // Draw weight
+                const midX = (source.x + target.x)/2;
+                const midY = (source.y + target.y)/2;
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(midX - 10, midY - 10, 20, 20);
+                ctx.fillStyle = '#000';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(edge.weight, midX, midY);
+            });
+            
+            // Draw nodes
+            nodes.forEach(node => {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, NODE_RADIUS, 0, Math.PI * 2);
+                ctx.fillStyle = node.visited ? '#aaffaa' : 
+                                node.id === startNode ? '#ff4444' :
+                                node.id === endNode ? '#44ff44' : '#fff';
+                ctx.strokeStyle = '#000';
+                ctx.fill();
+                ctx.stroke();
+                
+                // Draw labels
+                ctx.fillStyle = '#000';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(node.id, node.x, node.y);
+                
+                // Draw distance
+                ctx.fillStyle = '#444';
+                ctx.fillText(
+                    node.distance === Infinity ? '∞' : node.distance.toString(), 
+                    node.x, node.y + NODE_RADIUS + 10
+                );
+            });
+        }
+
+        async function startDijkstra() {
+            // Reset nodes
+            nodes.forEach(node => {
+                node.distance = Infinity;
+                node.visited = false;
+                node.previous = null;
+            });
+            nodes[startNode].distance = 0;
+            
+            let unvisited = [...nodes];
+            
+            while(unvisited.length > 0) {
+                // Get node with smallest distance
+                unvisited.sort((a, b) => a.distance - b.distance);
+                const current = unvisited.shift();
+                
+                if(current.distance === Infinity) break;
+                current.visited = true;
+                
+                // Update visualization
+                draw();
+                current.visited = true;
+                await sleep(animationSpeed);
+                
+                // Get neighbors
+                const neighbors = edges
+                    .filter(edge => edge.source === current.id || edge.target === current.id)
+                    .map(edge => edge.source === current.id ? 
+                        {node: nodes[edge.target], weight: edge.weight} : 
+                        {node: nodes[edge.source], weight: edge.weight});
+                
+                for(let neighbor of neighbors) {
+                    if(!neighbor.node.visited) {
+                        const alt = current.distance + neighbor.weight;
+                        if(alt < neighbor.node.distance) {
+                            neighbor.node.distance = alt;
+                            neighbor.node.previous = current;
+                        }
+                    }
+                }
+            }
+            
+            // Show final path
+            showPath();
+        }
+
+        function showPath() {
+            let path = [];
+            let current = nodes[endNode];
+            while(current) {
+                path.unshift(current);
+                current = current.previous;
+            }
+            
+            // Draw path
+            ctx.beginPath();
+            ctx.moveTo(path[0].x, path[0].y);
+            for(let i = 1; i < path.length; i++) {
+                ctx.lineTo(path[i].x, path[i].y);
+            }
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Update stats
+            const stats = document.getElementById('stats');
+            stats.innerHTML = `Shortest path length: ${nodes[endNode].distance}<br>
+                              Nodes visited: ${nodes.filter(n => n.visited).length}`;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Initial generation
+        generateGraph();
+    </script>
+</body>
+</html>
